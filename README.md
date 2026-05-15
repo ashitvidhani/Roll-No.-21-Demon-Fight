@@ -120,3 +120,38 @@ If either sprite is missing or fails to load, that character is rendered using t
 2. Trigger hits and verify flash feedback still appears on top of each character.
 3. Use Dodge Charm and verify player side movement still shifts the player sprite.
 4. Temporarily rename one sprite file (for example `player.png`), refresh, and confirm only that character falls back to the rectangle while the game still runs.
+
+## Sprite rendering polish (single PNG animation)
+
+Character sprite paths (kept as-is):
+- `assets/characters/player.png`
+- `assets/characters/demon.png`
+
+### Transparent PNG requirement
+
+For best in-game results, character PNGs should be exported with true transparency (alpha channel).
+If the source image has a white baked-in background, the canvas renderer cannot perfectly remove it in code.
+Use an editor export option such as **PNG-24 with transparency**.
+
+### Current animation style
+
+Player and demon currently use **code-based fake animation** from single images:
+- subtle idle bob (time-based sine wave)
+- short attack lunge toward the opponent
+- hit shake + flash overlay on damage
+
+This keeps combat logic unchanged while making static PNGs feel more alive.
+
+### Future option
+
+A future upgrade can replace single PNGs with real spritesheets (idle / attack / hit frame animations) for higher-fidelity character motion.
+
+### How to test sprite animation polish
+
+1. Run the game with both PNGs present.
+2. Watch both fighters at idle: they should gently bob up/down.
+3. Use Arrow Shot / Flame Strike / Heavy Slash: player should lunge slightly forward, then return.
+4. Let demon attack: demon should lunge toward player, then return.
+5. On hit, confirm the damaged character briefly shakes and flashes.
+6. Choose Dodge Charm (`W`) and confirm sideways dodge movement still works.
+7. Rename one sprite file and refresh to verify rectangle fallback still appears for missing image.
