@@ -85,7 +85,7 @@ Restart also cancels old in-flight async sequence steps via `sequenceId` guard.
 
 ## Known limitations
 
-- Placeholder rectangle characters (no sprite art yet).
+- Character sprites require `assets/characters/player.png` and `assets/characters/demon.png` (rectangles are used as fallback if missing).
 - No sound effects.
 - Single message box (not full scrolling log).
 - Random demon attack selection (not tactical AI).
@@ -97,3 +97,26 @@ Restart also cancels old in-flight async sequence steps via `sequenceId` guard.
 3. Confirm reflected `-8` appears only when the green counter projectile reaches the demon.
 4. Confirm `Round X resolved.` and `Select your attack.` appear **after** reflected impact, not before.
 5. While the counter projectile is in flight, press `R` and verify old reflections/messages do not leak into the restarted round.
+
+## Character sprite assets (player + demon)
+
+The game now attempts to load these character sprite files at startup:
+
+- `assets/characters/player.png`
+- `assets/characters/demon.png`
+
+Expected filenames are exactly:
+
+- `player.png`
+- `demon.png`
+
+### Fallback behavior
+
+If either sprite is missing or fails to load, that character is rendered using the existing rectangle fallback color block so gameplay continues normally (combat logic and turn sequencing are unchanged).
+
+### How to test sprite integration
+
+1. Keep both PNG files present and run the game. Confirm player/demon appear as sprites.
+2. Trigger hits and verify flash feedback still appears on top of each character.
+3. Use Dodge Charm and verify player side movement still shifts the player sprite.
+4. Temporarily rename one sprite file (for example `player.png`), refresh, and confirm only that character falls back to the rectangle while the game still runs.

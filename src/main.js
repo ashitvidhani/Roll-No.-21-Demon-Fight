@@ -17,6 +17,25 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+const PLAYER_SPRITE_WIDTH = 110;
+const PLAYER_SPRITE_HEIGHT = 130;
+const DEMON_SPRITE_WIDTH = 160;
+const DEMON_SPRITE_HEIGHT = 160;
+
+const sprites = {
+  player: { image: new Image(), loaded: false, failed: false },
+  demon: { image: new Image(), loaded: false, failed: false },
+};
+
+function setupSprite(spriteConfig, src) {
+  spriteConfig.image.onload = () => { spriteConfig.loaded = true; };
+  spriteConfig.image.onerror = () => { spriteConfig.failed = true; };
+  spriteConfig.image.src = src;
+}
+
+setupSprite(sprites.player, "assets/characters/player.png");
+setupSprite(sprites.demon, "assets/characters/demon.png");
+
 const attacks = [
   { name: "Arrow Shot", damage: 15, hitChance: 1.0, key: "1", effect: "arrow" },
   { name: "Flame Strike", damage: 20, hitChance: 0.82, key: "2", effect: "flame" },
@@ -407,10 +426,31 @@ function draw() {
   drawHealthBar(592, 24, 280, 22, demon.hp, demon.maxHp, "#ef5350", "Demon");
   ctx.fillStyle = "#fff"; ctx.font = "20px Arial"; ctx.textAlign = "center"; ctx.fillText(`Round ${roundNumber}`, canvas.width / 2, 40); ctx.textAlign = "left";
 
-  ctx.fillStyle = player.flash % 2 === 1 ? "#dff7ff" : "#4dd0e1";
-  ctx.fillRect(player.x - 40 + player.dodgeOffset, player.y - 40, 80, 80);
-  ctx.fillStyle = demon.flash % 2 === 1 ? "#ffdada" : "#ef5350";
-  ctx.fillRect(demon.x - 40, demon.y - 40, 80, 80);
+  const playerDrawX = player.x - PLAYER_SPRITE_WIDTH / 2 + player.dodgeOffset;
+  const playerDrawY = player.y - PLAYER_SPRITE_HEIGHT / 2;
+  if (sprites.player.loaded) {
+    ctx.drawImage(sprites.player.image, playerDrawX, playerDrawY, PLAYER_SPRITE_WIDTH, PLAYER_SPRITE_HEIGHT);
+    if (player.flash % 2 === 1) {
+      ctx.fillStyle = "rgba(223, 247, 255, 0.5)";
+      ctx.fillRect(playerDrawX, playerDrawY, PLAYER_SPRITE_WIDTH, PLAYER_SPRITE_HEIGHT);
+    }
+  } else {
+    ctx.fillStyle = player.flash % 2 === 1 ? "#dff7ff" : "#4dd0e1";
+    ctx.fillRect(player.x - 40 + player.dodgeOffset, player.y - 40, 80, 80);
+  }
+
+  const demonDrawX = demon.x - DEMON_SPRITE_WIDTH / 2;
+  const demonDrawY = demon.y - DEMON_SPRITE_HEIGHT / 2;
+  if (sprites.demon.loaded) {
+    ctx.drawImage(sprites.demon.image, demonDrawX, demonDrawY, DEMON_SPRITE_WIDTH, DEMON_SPRITE_HEIGHT);
+    if (demon.flash % 2 === 1) {
+      ctx.fillStyle = "rgba(255, 218, 218, 0.5)";
+      ctx.fillRect(demonDrawX, demonDrawY, DEMON_SPRITE_WIDTH, DEMON_SPRITE_HEIGHT);
+    }
+  } else {
+    ctx.fillStyle = demon.flash % 2 === 1 ? "#ffdada" : "#ef5350";
+    ctx.fillRect(demon.x - 40, demon.y - 40, 80, 80);
+  }
 
   drawEffects();
   ctx.fillStyle = "#12203b"; ctx.fillRect(20, 298, 520, 270);
