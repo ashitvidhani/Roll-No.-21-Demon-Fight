@@ -1,12 +1,12 @@
-# Roll No 21 - Demon Fight (Beginner Prototype)
+# Roll No 21 - Demon Fight (Milestone 2 Prototype)
 
-This repository now contains a **simple 2D browser game prototype** using:
+This repository contains a **simple 2D browser game prototype** built with:
 - HTML
 - CSS
 - JavaScript
 - Canvas API
 
-No frameworks are required, so it is beginner-friendly and easy to inspect.
+No frameworks are required, so it stays beginner-friendly.
 
 ## Project Structure
 
@@ -15,21 +15,30 @@ No frameworks are required, so it is beginner-friendly and easy to inspect.
 ├── index.html          # Main page + canvas container
 ├── style.css           # Basic layout and visual styling
 ├── src/
-│   └── main.js         # Game logic (movement, attack, collision, health, win/lose)
+│   └── main.js         # Game logic (movement, arrows, collision, demon AI, health, win/lose)
 └── README.md           # Setup and gameplay instructions
 ```
 
-## Features Implemented
+## Milestone 2 Features
 
 - Player placeholder (blue rectangle)
 - Demon placeholder (red rectangle)
 - Keyboard movement (Arrow keys or WASD)
-- Attack button (Space)
-- Enemy health bar
-- Player health bar
-- Collision detection
-- Simple arena background (gradient + grid)
-- Basic win/lose condition
+- Player facing direction tracking
+- **Ranged arrow combat** on Space
+- Arrow cooldown (prevents spam)
+- Arrow projectile array, movement, and cleanup
+- Arrow hit detection against demon
+- Demon knockback when hit by arrows
+- Demon chase AI
+- Demon attack range + cooldown-based damage
+- Demon enrages (moves faster below 50% HP)
+- Demon damage flash effect
+- Shooting visual ring effect
+- Player and demon health bars
+- UI controls text in-game
+- Win/lose conditions
+- Restart with **R**
 
 ## How to Run
 
@@ -38,33 +47,38 @@ No frameworks are required, so it is beginner-friendly and easy to inspect.
 2. Play immediately.
 
 ### Option 2 (recommended): Run a local server
-From the repository root, run:
+From the repository root:
 
 ```bash
 python3 -m http.server 8000
 ```
 
 Then open:
-
 - `http://localhost:8000`
 
 ## Controls
 
 - **Move:** Arrow keys or WASD
-- **Attack:** Space bar
+- **Shoot Arrow:** Space
+- **Restart (after win/lose):** R
+
+## Arrow System (Beginner Explanation)
+
+- Pressing **Space** creates an arrow object and stores it in an `arrows` array.
+- Each arrow keeps position (`x`, `y`), size (`width`, `height`), and velocity (`vx`, `vy`).
+- Every frame, the game loop updates each arrow by adding velocity to position.
+- If an arrow leaves the arena, it is removed from the array.
+- If an arrow collides with the demon:
+  - the demon loses health,
+  - a brief flash effect is shown,
+  - the demon is pushed back a little,
+  - and that arrow is removed.
 
 ## Gameplay Notes
 
-- Move close to the demon to land attacks.
-- Attacks have a short cooldown.
-- Touching the demon damages the player over time.
+- Aim by moving first; arrows fire in your **last movement direction**.
+- Keep distance and kite the demon.
+- The demon chases constantly and attacks only when close enough and off cooldown.
+- When demon HP drops below half, it speeds up.
 - You win when demon health reaches 0.
 - You lose when player health reaches 0.
-
-## Next Ideas (Optional)
-
-- Add sprite images and animations
-- Add demon AI movement
-- Add sound effects
-- Add restart button instead of browser refresh
-- Add multiple levels/waves
