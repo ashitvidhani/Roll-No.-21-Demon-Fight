@@ -17,10 +17,24 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const PLAYER_SPRITE_WIDTH = 110;
-const PLAYER_SPRITE_HEIGHT = 130;
-const DEMON_SPRITE_WIDTH = 160;
-const DEMON_SPRITE_HEIGHT = 160;
+const PLAYER_SPRITE_WIDTH = 120;
+const PLAYER_SPRITE_HEIGHT = 150;
+const DEMON_SPRITE_WIDTH = 170;
+const DEMON_SPRITE_HEIGHT = 170;
+
+const PLAYER_SPRITE_OFFSET_X = -2;
+const PLAYER_SPRITE_OFFSET_Y = 6;
+const DEMON_SPRITE_OFFSET_X = 4;
+const DEMON_SPRITE_OFFSET_Y = 8;
+
+const PLAYER_IDLE_BOB_AMPLITUDE = 4;
+const DEMON_IDLE_BOB_AMPLITUDE = 5;
+const IDLE_BOB_SPEED = 0.0045;
+
+const PLAYER_LUNGE_DISTANCE = 24;
+const DEMON_LUNGE_DISTANCE = 28;
+const LUNGE_DURATION = 20;
+const HIT_SHAKE_INTENSITY = 6;
 
 const sprites = {
   player: { image: new Image(), loaded: false, failed: false },
@@ -54,8 +68,8 @@ const demonAttacks = [
   { name: "Dark Blast", damage: 22, effect: "dark" },
 ];
 
-const player = { maxHp: 100, hp: 100, x: 220, y: 250, flash: 0, dodgeOffset: 0 };
-const demon = { maxHp: 120, hp: 120, x: 680, y: 250, flash: 0 };
+const player = { maxHp: 100, hp: 100, x: 220, y: 250, flash: 0, dodgeOffset: 0, lungeOffset: 0, hitShake: 0 };
+const demon = { maxHp: 120, hp: 120, x: 680, y: 250, flash: 0, lungeOffset: 0, hitShake: 0 };
 const floatingTexts = [];
 const effects = [];
 
@@ -121,7 +135,7 @@ function createTimedEffect(type, life, extra = {}) {
 function clearTurnChoices() { selectedAttackIndex = null; selectedDefenceIndex = null; pendingDemonAttack = null; }
 function resetGame() {
   sequenceId += 1;
-  player.hp = player.maxHp; demon.hp = demon.maxHp; player.flash = 0; demon.flash = 0; player.dodgeOffset = 0;
+  player.hp = player.maxHp; demon.hp = demon.maxHp; player.flash = 0; demon.flash = 0; player.dodgeOffset = 0; player.lungeOffset = 0; demon.lungeOffset = 0; player.hitShake = 0; demon.hitShake = 0;
   roundNumber = 1; clearTurnChoices(); floatingTexts.length = 0; effects.length = 0; isResolvingTurn = false;
   setMessage("Select your attack.");
 }
@@ -132,6 +146,12 @@ const canPressDone = () => !isResolvingTurn && selectedAttackIndex !== null && s
 
 function selectAttack(index) { if (canSelectAttack() && attacks[index]) { selectedAttackIndex = index; setMessage("Select your defence."); } }
 function selectDefence(index) { if (canSelectDefence() && defences[index]) { selectedDefenceIndex = index; setMessage("Press Done to resolve the turn."); } }
+
+
+function animateLunge(target, distance, duration = LUNGE_DURATION) {
+  const e = addEffect(createTimedEffect("lunge", duration, { target, distance }));
+  return e.donePromise;
+}
 
 async function startRoundResolve() {
   if (!canPressDone() || player.hp <= 0 || demon.hp <= 0) return;
@@ -177,6 +197,8 @@ async function startRoundResolve() {
 }
 
 async function playPlayerAttack(attack) {
+  const lungePromise = animateLunge(player, PLAYER_LUNGE_DISTANCE);
+
   const hitLogic = () => {
     const hit = Math.random() <= attack.hitChance;
     if (!hit) {
@@ -186,6 +208,7 @@ async function playPlayerAttack(attack) {
     }
     demon.hp = clamp(demon.hp - attack.damage, 0, demon.maxHp);
     demon.flash = 12;
+    demon.hitShake = 10;
     addFloatingText(`-${attack.damage}`, demon.x - 16, demon.y - 56, "#ff6b6b");
     addEffect(createTimedEffect("hitBurst", 20, { x: demon.x, y: demon.y }));
     setMessage(`Demon took ${attack.damage} damage.`);
@@ -193,17 +216,18 @@ async function playPlayerAttack(attack) {
 
   if (attack.effect === "slash") {
     const slash = addEffect(createTimedEffect("slashNearDemon", 26, { x: demon.x - 26, y: demon.y - 6, applied: false, impactLife: 14, onImpact: hitLogic }));
-    await slash.donePromise;
+    await Promise.all([slash.donePromise, lungePromise]);
     return;
   }
 
   const projType = attack.effect === "arrow" ? "arrow" : "flame";
   const speed = projType === "arrow" ? 4.8 : 4.3;
   const proj = addEffect(createProjectile(projType, { x: player.x + 32, y: player.y - 10 }, { x: demon.x - 28, y: demon.y - 10 }, hitLogic, speed));
-  await proj.donePromise;
+  await Promise.all([proj.donePromise, lungePromise]);
 }
 
 async function playDemonAttackWithDefence(demonAttack, defence) {
+  const lungePromise = animateLunge(demon, -DEMON_LUNGE_DISTANCE);
   const defenceEffect = addDefenceEffect(defence);
 
   const applyIncomingDamage = async () => {
@@ -229,6 +253,7 @@ async function playDemonAttackWithDefence(demonAttack, defence) {
     if (damage > 0) {
       player.hp = clamp(player.hp - damage, 0, player.maxHp);
       player.flash = 12;
+      player.hitShake = 10;
       addFloatingText(`-${damage}`, player.x - 14, player.y - 58, "#ff6b6b");
       setMessage(`You took ${damage} damage.`);
     } else if (defence.type !== "counter") {
@@ -239,6 +264,7 @@ async function playDemonAttackWithDefence(demonAttack, defence) {
       const counterFx = addEffect(createProjectile("counterBolt", { x: player.x + 42, y: player.y - 20 }, { x: demon.x - 8, y: demon.y - 12 }, () => {
         demon.hp = clamp(demon.hp - 8, 0, demon.maxHp);
         demon.flash = 10;
+        demon.hitShake = 8;
         addFloatingText("-8", demon.x - 10, demon.y - 62, "#82ff9e");
         addEffect(createTimedEffect("counterHit", 18, { x: demon.x - 10, y: demon.y - 2 }));
         setMessage("Counter Guard reflected 8 damage.");
@@ -256,7 +282,7 @@ async function playDemonAttackWithDefence(demonAttack, defence) {
     attackEffect = addEffect(createProjectile("dark", { x: demon.x - 30, y: demon.y - 8 }, { x: player.x + 12, y: player.y - 10 }, applyIncomingDamage, 4.4));
   }
 
-  await attackEffect.donePromise;
+  await Promise.all([attackEffect.donePromise, lungePromise]);
   if (defenceEffect) await defenceEffect.donePromise;
 }
 
@@ -341,12 +367,17 @@ function updateEffects() {
         e.applied = true;
         triggerImpact(e);
       }
+      if (e.type === "lunge") {
+        const p = 1 - e.life / e.maxLife;
+        e.target.lungeOffset = Math.sin(p * Math.PI) * e.distance;
+      }
       if (e.type === "dodge") {
         const p = 1 - e.life / e.maxLife;
         player.dodgeOffset = Math.sin(p * Math.PI) * 28;
       }
       if (e.life <= 0) {
         if (e.type === "dodge") player.dodgeOffset = 0;
+        if (e.type === "lunge") e.target.lungeOffset = 0;
         if (!e.impactPending) completeEffect(e);
       }
     }
@@ -356,6 +387,8 @@ function updateEffects() {
   }
   if (player.flash > 0) player.flash -= 1;
   if (demon.flash > 0) demon.flash -= 1;
+  if (player.hitShake > 0) player.hitShake -= 1;
+  if (demon.hitShake > 0) demon.hitShake -= 1;
 }
 
 function drawHealthBar(x, y, w, h, hp, maxHp, color, label) {
@@ -426,30 +459,49 @@ function draw() {
   drawHealthBar(592, 24, 280, 22, demon.hp, demon.maxHp, "#ef5350", "Demon");
   ctx.fillStyle = "#fff"; ctx.font = "20px Arial"; ctx.textAlign = "center"; ctx.fillText(`Round ${roundNumber}`, canvas.width / 2, 40); ctx.textAlign = "left";
 
-  const playerDrawX = player.x - PLAYER_SPRITE_WIDTH / 2 + player.dodgeOffset;
-  const playerDrawY = player.y - PLAYER_SPRITE_HEIGHT / 2;
+  const now = performance.now();
+  const playerIdleBob = Math.sin(now * IDLE_BOB_SPEED) * PLAYER_IDLE_BOB_AMPLITUDE;
+  const demonIdleBob = Math.sin(now * IDLE_BOB_SPEED + 1.2) * DEMON_IDLE_BOB_AMPLITUDE;
+
+  const playerShakeX = player.hitShake > 0 ? (Math.random() - 0.5) * HIT_SHAKE_INTENSITY : 0;
+  const playerShakeY = player.hitShake > 0 ? (Math.random() - 0.5) * HIT_SHAKE_INTENSITY * 0.6 : 0;
+  const demonShakeX = demon.hitShake > 0 ? (Math.random() - 0.5) * HIT_SHAKE_INTENSITY : 0;
+  const demonShakeY = demon.hitShake > 0 ? (Math.random() - 0.5) * HIT_SHAKE_INTENSITY * 0.6 : 0;
+
+  const playerAnchorX = player.x + player.dodgeOffset + player.lungeOffset + playerShakeX + PLAYER_SPRITE_OFFSET_X;
+  const playerAnchorY = player.y + playerIdleBob + playerShakeY + PLAYER_SPRITE_OFFSET_Y;
+  const playerDrawX = playerAnchorX - PLAYER_SPRITE_WIDTH / 2;
+  const playerDrawY = playerAnchorY - PLAYER_SPRITE_HEIGHT / 2;
+
   if (sprites.player.loaded) {
     ctx.drawImage(sprites.player.image, playerDrawX, playerDrawY, PLAYER_SPRITE_WIDTH, PLAYER_SPRITE_HEIGHT);
     if (player.flash % 2 === 1) {
-      ctx.fillStyle = "rgba(223, 247, 255, 0.5)";
+      ctx.fillStyle = "rgba(255, 224, 224, 0.35)";
+      ctx.fillRect(playerDrawX, playerDrawY, PLAYER_SPRITE_WIDTH, PLAYER_SPRITE_HEIGHT);
+      ctx.fillStyle = "rgba(235, 247, 255, 0.3)";
       ctx.fillRect(playerDrawX, playerDrawY, PLAYER_SPRITE_WIDTH, PLAYER_SPRITE_HEIGHT);
     }
   } else {
     ctx.fillStyle = player.flash % 2 === 1 ? "#dff7ff" : "#4dd0e1";
-    ctx.fillRect(player.x - 40 + player.dodgeOffset, player.y - 40, 80, 80);
+    ctx.fillRect(playerAnchorX - 40, playerAnchorY - 40, 80, 80);
   }
 
-  const demonDrawX = demon.x - DEMON_SPRITE_WIDTH / 2;
-  const demonDrawY = demon.y - DEMON_SPRITE_HEIGHT / 2;
+  const demonAnchorX = demon.x + demon.lungeOffset + demonShakeX + DEMON_SPRITE_OFFSET_X;
+  const demonAnchorY = demon.y + demonIdleBob + demonShakeY + DEMON_SPRITE_OFFSET_Y;
+  const demonDrawX = demonAnchorX - DEMON_SPRITE_WIDTH / 2;
+  const demonDrawY = demonAnchorY - DEMON_SPRITE_HEIGHT / 2;
+
   if (sprites.demon.loaded) {
     ctx.drawImage(sprites.demon.image, demonDrawX, demonDrawY, DEMON_SPRITE_WIDTH, DEMON_SPRITE_HEIGHT);
     if (demon.flash % 2 === 1) {
-      ctx.fillStyle = "rgba(255, 218, 218, 0.5)";
+      ctx.fillStyle = "rgba(255, 202, 202, 0.4)";
+      ctx.fillRect(demonDrawX, demonDrawY, DEMON_SPRITE_WIDTH, DEMON_SPRITE_HEIGHT);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
       ctx.fillRect(demonDrawX, demonDrawY, DEMON_SPRITE_WIDTH, DEMON_SPRITE_HEIGHT);
     }
   } else {
     ctx.fillStyle = demon.flash % 2 === 1 ? "#ffdada" : "#ef5350";
-    ctx.fillRect(demon.x - 40, demon.y - 40, 80, 80);
+    ctx.fillRect(demonAnchorX - 40, demonAnchorY - 40, 80, 80);
   }
 
   drawEffects();
