@@ -1,127 +1,87 @@
-# Kid Duel - Turn-Based Demon Battle (Milestone 3)
+# Kid Duel - Turn-Based Demon Battle (Milestone 4)
 
-This repository now contains a **turn-based Canvas duel prototype** built with plain:
-- HTML
-- CSS
-- JavaScript
-- Canvas API
+This project is a plain **HTML + CSS + JavaScript + Canvas** prototype focused on a clear turn-based combat flow with visible placeholder animations.
 
-The game is intentionally simple and kid-friendly, with placeholder shapes and a clear combat loop.
+## Current Turn-Based Loop
 
-## Milestone 3 Gameplay Loop
+Each round now resolves as a timed sequence instead of instant HP changes:
 
-1. Player turn starts.
-2. Message box asks: **Select your attack.**
-3. Select one attack item.
-4. Message box asks: **Select your defence.**
-5. Select one defence item.
-6. Press **Done** (or **Space / Enter**).
-7. Player attack resolves and can damage demon.
-8. Demon turn begins.
-9. Demon chooses one demon attack.
-10. Selected defence modifies incoming damage.
-11. Health bars update.
-12. Next round starts unless someone is defeated.
+1. Select attack.
+2. Select defence.
+3. Press Done.
+4. Message: `You used [Attack Name]!`
+5. Player attack animation plays.
+6. Damage applies only when the attack visually connects.
+7. Demon flashes and floating damage appears.
+8. Message: `Demon used [Enemy Attack]!`
+9. Demon attack animation + chosen defence animation play.
+10. Player damage applies after defence resolves.
+11. Player flash + floating damage (or block/dodge/counter text).
+12. Round result message.
+13. Next round transition message, then selection returns.
 
-## State Machine
+## Attack Animations
 
-The duel uses these states:
-- `SELECT_ATTACK`
-- `SELECT_DEFENCE`
-- `READY_TO_RESOLVE`
-- `PLAYER_ATTACK_RESOLVE`
-- `DEMON_TURN`
-- `ROUND_END`
-- `WIN`
-- `GAME_OVER`
+- **Arrow Shot**: yellow arrow projectile travels from player to demon.
+- **Flame Strike**: orange/red fireball projectile with burst on contact.
+- **Heavy Slash**: slash arc appears near demon.
 
-## Controls
+> Damage for all player attacks is applied only on hit frame/contact frame.
 
-- **1 / 2 / 3** = select attack
-- **Q / W / E** = select defence
-- **Space / Enter** = Done (resolve turn)
-- **Mouse click** = select slots / click Done
-- **R** = restart duel
+## Defence Animations
 
-## Attack Items
+- **Wooden Shield**: front arc appears in front of player, then reduced damage is applied.
+- **Dodge Charm**: player shifts sideways and flashes.
+  - Success: `Dodged!` and zero damage.
+  - Fail: `Dodge failed!` then normal damage.
+- **Counter Guard**: block arc appears, incoming damage is reduced, then reflected counter effect damages demon.
 
-1. **Arrow Shot**
-   - Damage: 15
-   - Reliable (always hits)
-2. **Flame Strike**
-   - Damage: 20
-   - Slight miss chance
-3. **Heavy Slash**
-   - Damage: 25
-   - Higher miss chance
-4. **Empty slot**
+## Demon Attack Animations
 
-## Defence Items
+- **Claw Hit**: slash marks appear at player.
+- **Tail Strike**: curved arc swipe appears near player.
+- **Dark Blast**: purple projectile travels from demon to player.
 
-1. **Wooden Shield**
-   - Guards 60% of incoming damage (you take 40%)
-2. **Dodge Charm**
-   - 50% chance to avoid all damage
-3. **Counter Guard**
-   - Reduces damage by 30%
-   - Reflects 8 damage back to demon
-4. **Empty slot**
+## Input Rules During Animation
 
-## Demon Attacks
+During turn resolution:
+- Attack/defence selection is disabled.
+- Done cannot be triggered repeatedly.
+- Only `R` restart is accepted.
 
-- **Claw Hit** (10 damage)
-- **Tail Strike** (15 damage)
-- **Dark Blast** (22 damage)
+## UI Improvements in Milestone 4
 
-## Visual/UI Layout
-
-- Player health bar: top-left
-- Demon health bar: top-right
-- Round label: top-center
-- Player placeholder: left side
-- Demon placeholder: right side
-- Attack panel: bottom-left
-- Defence panel: below attack panel
-- Done button: near the panel
-- Tutorial/message box: bottom-right
-- Floating damage text appears on hits/blocks/misses
+- Attack and defence panels fully visible.
+- Done button moved to avoid overlapping slots.
+- Message box has larger usable space and wraps text.
+- Empty slots look disabled.
+- Selected attack/defence have strong highlight borders.
+- Round number remains centered and visible.
 
 ## How to Run
 
 ### Option 1: Open directly
-1. Open `index.html` in a modern browser.
+Open `index.html` in a modern browser.
 
-### Option 2 (recommended): run local server
+### Option 2: Run local server
 ```bash
 python3 -m http.server 8000
 ```
-Then open:
-- `http://localhost:8000`
+Then open `http://localhost:8000`.
 
-## How to Test One Complete Round
+## How to Test One Full Animated Round
 
-1. Start the game.
-2. Choose attack with **1** (Arrow Shot).
-3. Choose defence with **Q** (Wooden Shield).
-4. Press **Space** to resolve.
-5. Observe message flow:
-   - "You used Arrow Shot!"
-   - "Demon took 15 damage."
-   - Demon attack message
-   - Shield reduction message
-6. Confirm both health bars update.
-7. Confirm round counter increments on next turn.
+1. Select **Arrow Shot** (`1`) and **Wooden Shield** (`Q`).
+2. Press **Done** (`Space` or `Enter`).
+3. Verify timeline messages appear in order.
+4. Verify player attack animation plays before demon HP drops.
+5. Verify demon attack + shield animation play before player HP drops.
+6. Verify floating texts rise/fade.
+7. Verify `Round X begins.` then `Select your attack.` appears.
 
-## Current Limitations
+## Known Limitations
 
-- Uses simple placeholder art only.
-- No sound, animation timeline system, or advanced VFX.
-- Basic AI: demon randomly picks one of three attacks.
-- Message box shows short single-line updates.
-
-## Suggested Next Milestone
-
-- Add richer turn timeline/queue UI (multi-step action log).
-- Add more attack/defence items with status effects.
-- Add simple character portraits and polish effects.
-- Add difficulty modes and smarter demon choices.
+- Placeholder rectangle characters and simple geometric effects only.
+- No sound system yet.
+- Message box is single-message style (not a scrolling log history yet).
+- Demon AI is random and not tactical.
