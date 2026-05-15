@@ -43,6 +43,7 @@ The round resolver was previously based on fixed queued delays, so the demon pha
 - **Wooden Shield**: large front arc appears before impact; then reduced damage.
 - **Dodge Charm**: clearer side-shift; success/fail resolved at impact frame.
 - **Counter Guard**: incoming damage reduced first, then reflected projectile travels to demon; demon takes 8 only when reflected hit connects.
+- Counter Guard now keeps the round resolver waiting until the reflected hit sequence fully completes.
 
 ## UI/layout update
 
@@ -88,3 +89,11 @@ Restart also cancels old in-flight async sequence steps via `sequenceId` guard.
 - No sound effects.
 - Single message box (not full scrolling log).
 - Random demon attack selection (not tactical AI).
+
+## Counter Guard timing regression test
+
+1. Choose any attack + **Counter Guard (E)** and press Done.
+2. Confirm player takes reduced damage first (30% reduction).
+3. Confirm reflected `-8` appears only when the green counter projectile reaches the demon.
+4. Confirm `Round X resolved.` and `Select your attack.` appear **after** reflected impact, not before.
+5. While the counter projectile is in flight, press `R` and verify old reflections/messages do not leak into the restarted round.

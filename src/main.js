@@ -292,6 +292,18 @@ function completeEffect(e) {
   if (!e.done) { e.done = true; if (e.doneResolve) e.doneResolve(); }
 }
 
+function triggerImpact(e) {
+  if (e.impactTriggered || !e.onImpact) return;
+  e.impactTriggered = true;
+  const impactResult = e.onImpact();
+  if (impactResult && typeof impactResult.then === "function") {
+    e.impactPending = true;
+    e.impactPromise = impactResult
+      .catch(() => {})
+      .finally(() => { e.impactPending = false; });
+  }
+}
+
 function updateEffects() {
   for (let i = effects.length - 1; i >= 0; i -= 1) {
     const e = effects[i];
@@ -299,16 +311,16 @@ function updateEffects() {
       const dx = e.toX - e.x; const dy = e.toY - e.y; const dist = Math.hypot(dx, dy);
       if (dist <= e.speed) {
         e.x = e.toX; e.y = e.toY;
-        if (!e.impacted && e.onImpact) e.onImpact();
+        if (!e.impacted) triggerImpact(e);
         e.impacted = true;
         if (e.type === "flame") addEffect(createTimedEffect("flameBurst", 24, { x: e.x, y: e.y }));
-        completeEffect(e);
+        if (!e.impactPending) completeEffect(e);
       } else { e.x += (dx / dist) * e.speed; e.y += (dy / dist) * e.speed; }
     } else {
       e.life -= 1;
       if (["slashNearDemon", "claw", "tail"].includes(e.type) && !e.applied && e.life <= e.impactLife) {
         e.applied = true;
-        if (e.onImpact) e.onImpact();
+        triggerImpact(e);
       }
       if (e.type === "dodge") {
         const p = 1 - e.life / e.maxLife;
@@ -316,9 +328,11 @@ function updateEffects() {
       }
       if (e.life <= 0) {
         if (e.type === "dodge") player.dodgeOffset = 0;
-        completeEffect(e);
+        if (!e.impactPending) completeEffect(e);
       }
     }
+    if (!e.done && e.impactTriggered && !e.impactPending && e.impacted) completeEffect(e);
+    if (!e.done && e.impactTriggered && !e.impactPending && e.applied && e.life <= 0) completeEffect(e);
     if (e.done) effects.splice(i, 1);
   }
   if (player.flash > 0) player.flash -= 1;
