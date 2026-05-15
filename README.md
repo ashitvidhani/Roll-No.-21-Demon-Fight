@@ -35,6 +35,8 @@ Each round now resolves as a timed sequence instead of instant HP changes:
   - Success: `Dodged!` and zero damage.
   - Fail: `Dodge failed!` then normal damage.
 - **Counter Guard**: block arc appears, incoming damage is reduced, then reflected counter effect damages demon.
+  - Reflected 8 damage is applied only when the counter projectile visibly reaches the demon.
+  - Round flow waits for the counter hit to finish before showing `Round X resolved.` and returning to selection.
 
 ## Demon Attack Animations
 
@@ -78,6 +80,23 @@ Then open `http://localhost:8000`.
 5. Verify demon attack + shield animation play before player HP drops.
 6. Verify floating texts rise/fade.
 7. Verify `Round X begins.` then `Select your attack.` appears.
+
+### Counter Guard Timing Test
+
+1. Select any attack, then select **Counter Guard** (`E`).
+2. Press **Done** and watch demon attack connect with player first.
+3. Confirm reduced player damage is applied.
+4. Confirm a counter projectile travels from player to demon.
+5. Confirm demon `-8` appears only when the projectile lands.
+6. Confirm message `Counter Guard reflected 8 damage.` appears.
+7. Confirm the round does **not** advance until the counter projectile and counter hit effect are finished.
+
+### Restart Safety During Resolving
+
+1. Start a round using **Counter Guard**.
+2. During the demon attack or in-flight counter projectile, press **R**.
+3. Confirm HP, round number, messages, and effects reset immediately.
+4. Confirm no delayed old damage/messages from the interrupted round appear afterward.
 
 ## Known Limitations
 

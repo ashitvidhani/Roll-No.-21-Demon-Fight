@@ -43,6 +43,7 @@ let pendingDemonAttack = null;
 let message = "Select your attack.";
 let isResolvingTurn = false;
 let roundResultText = "";
+let resolveToken = 0;
 
 const ui = {
   attackSlots: [],
@@ -125,6 +126,7 @@ function clearTurnChoices() {
 }
 
 function resetGame() {
+  resolveToken += 1;
   player.hp = player.maxHp;
   demon.hp = demon.maxHp;
   player.flash = 0;
@@ -168,6 +170,8 @@ function startRoundResolve() {
   if (!canPressDone() || player.hp <= 0 || demon.hp <= 0) return;
 
   isResolvingTurn = true; // Input lock: only restart is allowed while animating.
+  resolveToken += 1;
+  const currentToken = resolveToken;
   roundSequence.length = 0;
   roundResultText = "";
 
@@ -178,7 +182,7 @@ function startRoundResolve() {
   queueStep(100, () => setMessage(`You used ${attack.name}!`));
   queueStep(200, () => playPlayerAttack(attack));
   queueStep(450, () => setMessage(`Demon used ${pendingDemonAttack.name}!`));
-  queueStep(200, () => playDemonAttackWithDefence(pendingDemonAttack, defence));
+  queueStep(200, () => playDemonAttackWithDefence(pendingDemonAttack, defence, currentToken));
   queueStep(350, () => {
     setMessage(roundResultText || `Round ${roundNumber} complete.`);
   });
@@ -196,15 +200,20 @@ function startRoundResolve() {
     }, 650);
   });
 
-  runNextStep();
+  runNextStep(currentToken);
 }
 
-function runNextStep() {
+function runNextStep(token) {
   if (roundSequence.length === 0) return;
   const step = roundSequence.shift();
   setTimeout(() => {
-    step.action();
-    runNextStep();
+    if (token !== resolveToken) return;
+    const result = step.action();
+    if (result && typeof result.then === "function") {
+      result.then(() => runNextStep(token));
+      return;
+    }
+    runNextStep(token);
   }, step.delayMs);
 }
 
@@ -237,19 +246,25 @@ function playPlayerAttack(attack) {
   addEffect(createProjectile(colorType, { x: player.x + 26, y: player.y - 8 }, { x: demon.x - 22, y: demon.y - 10 }, connected));
 }
 
-function playDemonAttackWithDefence(demonAttack, defence) {
+function waitForEffectDone(effect) {
+  return new Promise((resolve) => {
+    effect.onDone = resolve;
+  });
+}
+
+async function playDemonAttackWithDefence(demonAttack, defence, token) {
   addDefenceEffect(defence, demonAttack);
 
   const applyIncomingDamage = () => {
+    if (token !== resolveToken) return;
     let damage = demonAttack.damage;
-    let dodgeSuccess = false;
 
     if (defence.type === "shield") {
       damage = Math.round(damage * 0.4);
       addFloatingText("Blocked", player.x - 22, player.y - 62, "#6fc8ff");
       setMessage("Wooden Shield reduced the damage.");
     } else if (defence.type === "dodge") {
-      dodgeSuccess = Math.random() < 0.5;
+      const dodgeSuccess = Math.random() < 0.5;
       if (dodgeSuccess) {
         damage = 0;
         addFloatingText("Dodged!", player.x - 18, player.y - 62, "#6ef3a5");
@@ -260,12 +275,6 @@ function playDemonAttackWithDefence(demonAttack, defence) {
     } else if (defence.type === "counter") {
       damage = Math.round(damage * 0.7);
       addFloatingText("Blocked", player.x - 22, player.y - 62, "#6fc8ff");
-      demon.hp = clamp(demon.hp - 8, 0, demon.maxHp);
-      demon.flash = 8;
-      addFloatingText("Counter -8", demon.x - 40, demon.y - 62, "#82ff9e");
-      addEffect(createTimedEffect("counterHit", 14, { x: demon.x - 10, y: demon.y - 2 }));
-      setMessage("Counter Guard reflected damage.");
-      if (demon.hp <= 0) roundResultText = "Counter Guard finished the demon!";
     }
 
     if (damage > 0) {
@@ -280,16 +289,34 @@ function playDemonAttackWithDefence(demonAttack, defence) {
     }
 
     if (player.hp <= 0) roundResultText = "You were defeated.";
-    if (!roundResultText) roundResultText = `Round ${roundNumber} resolved.`;
   };
 
-  if (demonAttack.effect === "claw") {
-    addEffect(createTimedEffect("claw", 16, { x: player.x + 5, y: player.y - 8, onConnect: applyIncomingDamage, applied: false }));
-  } else if (demonAttack.effect === "tail") {
-    addEffect(createTimedEffect("tail", 20, { x: player.x + 50, y: player.y - 5, onConnect: applyIncomingDamage, applied: false, sweep: 0 }));
-  } else {
-    addEffect(createProjectile("dark", { x: demon.x - 26, y: demon.y - 8 }, { x: player.x + 16, y: player.y - 10 }, applyIncomingDamage));
+  const attackEffect = demonAttack.effect === "claw"
+    ? createTimedEffect("claw", 16, { x: player.x + 5, y: player.y - 8, onConnect: applyIncomingDamage, applied: false })
+    : demonAttack.effect === "tail"
+      ? createTimedEffect("tail", 20, { x: player.x + 50, y: player.y - 5, onConnect: applyIncomingDamage, applied: false, sweep: 0 })
+      : createProjectile("dark", { x: demon.x - 26, y: demon.y - 8 }, { x: player.x + 16, y: player.y - 10 }, applyIncomingDamage);
+
+  addEffect(attackEffect);
+  await waitForEffectDone(attackEffect);
+  if (token !== resolveToken) return;
+
+  if (defence.type === "counter" && demon.hp > 0 && player.hp > 0) {
+    const counterBolt = createProjectile("counterBolt", { x: player.x + 20, y: player.y - 10 }, { x: demon.x - 24, y: demon.y - 10 }, () => {
+      if (token !== resolveToken) return;
+      demon.hp = clamp(demon.hp - 8, 0, demon.maxHp);
+      demon.flash = 8;
+      addFloatingText("Counter -8", demon.x - 40, demon.y - 62, "#82ff9e");
+      addEffect(createTimedEffect("counterHit", 14, { x: demon.x - 10, y: demon.y - 2 }));
+      setMessage("Counter Guard reflected 8 damage.");
+      if (demon.hp <= 0) roundResultText = "Counter Guard finished the demon!";
+    });
+    addEffect(counterBolt);
+    await waitForEffectDone(counterBolt);
+    if (token !== resolveToken) return;
   }
+
+  if (!roundResultText) roundResultText = `Round ${roundNumber} resolved.`;
 }
 
 function addDefenceEffect(defence) {
@@ -363,7 +390,7 @@ function updateEffects() {
   for (let i = effects.length - 1; i >= 0; i -= 1) {
     const e = effects[i];
 
-    if (e.type === "arrow" || e.type === "flame" || e.type === "dark") {
+    if (e.type === "arrow" || e.type === "flame" || e.type === "dark" || e.type === "counterBolt") {
       const dx = e.toX - e.x;
       const dy = e.toY - e.y;
       const dist = Math.hypot(dx, dy);
@@ -395,6 +422,7 @@ function updateEffects() {
     }
 
     if (e.done) effects.splice(i, 1);
+    if (e.done && e.onDone) e.onDone();
   }
 
   if (player.flash > 0) player.flash -= 1;
@@ -464,6 +492,13 @@ function drawEffects() {
       ctx.fillStyle = "#a057ff";
       ctx.beginPath();
       ctx.arc(e.x, e.y, 9, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (e.type === "counterBolt") {
+      ctx.fillStyle = "#9dffb0";
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 7, 0, Math.PI * 2);
       ctx.fill();
     }
 

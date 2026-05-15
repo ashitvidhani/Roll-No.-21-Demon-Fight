@@ -20,7 +20,7 @@ body {
 
 .game-shell {
   width: min(960px, 94vw);
-  padding: 1rem;
+  padding: 0.7rem 0.9rem;
   background: rgba(8, 12, 22, 0.7);
   border: 2px solid #2d3b58;
   border-radius: 12px;
@@ -28,19 +28,19 @@ body {
 }
 
 h1 {
-  margin: 0.2rem 0 0.6rem;
+  margin: 0.1rem 0 0.35rem;
   text-align: center;
 }
 
 .controls {
-  margin: 0.4rem 0;
+  margin: 0.2rem 0 0.3rem;
   text-align: center;
   color: #d9e3ff;
 }
 
 #gameCanvas {
   display: block;
-  margin: 0.8rem auto;
+  margin: 0.45rem auto 0.2rem;
   width: 100%;
   max-width: 900px;
   border: 2px solid #566a9a;
