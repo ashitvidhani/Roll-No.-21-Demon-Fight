@@ -1,87 +1,90 @@
-# Kid Duel - Turn-Based Demon Battle (Milestone 4)
+# Kid Duel - Turn-Based Demon Battle (Milestone 4 Sequencing Fix)
 
-This project is a plain **HTML + CSS + JavaScript + Canvas** prototype focused on a clear turn-based combat flow with visible placeholder animations.
+This project uses plain **HTML + CSS + JavaScript + Canvas**.
 
-## Current Turn-Based Loop
+## What was fixed
 
-Each round now resolves as a timed sequence instead of instant HP changes:
+The round resolver was previously based on fixed queued delays, so the demon phase could start before the player animation had finished. It is now **animation-driven**:
 
-1. Select attack.
-2. Select defence.
-3. Press Done.
-4. Message: `You used [Attack Name]!`
-5. Player attack animation plays.
-6. Damage applies only when the attack visually connects.
-7. Demon flashes and floating damage appears.
-8. Message: `Demon used [Enemy Attack]!`
-9. Demon attack animation + chosen defence animation play.
-10. Player damage applies after defence resolves.
-11. Player flash + floating damage (or block/dodge/counter text).
-12. Round result message.
-13. Next round transition message, then selection returns.
+- One async round sequence (`async/await`) controls turn flow.
+- Every major attack/defence effect returns a completion promise.
+- The next phase starts only after the current animation reports completion.
+- Damage is applied on impact frames (projectile hit / strike impact), not before.
 
-## Attack Animations
+## Correct round order now
 
-- **Arrow Shot**: yellow arrow projectile travels from player to demon.
-- **Flame Strike**: orange/red fireball projectile with burst on contact.
-- **Heavy Slash**: slash arc appears near demon.
+1. `You used [Attack Name]!` (wait 500ms)
+2. Player attack animation plays.
+3. Wait until player effect finishes.
+4. Apply demon damage on impact frame.
+5. Show flash/floating damage (wait 700ms).
+6. If demon dies, battle ends.
+7. `Demon used [Enemy Attack]!` (wait 500ms)
+8. Demon attack + defence animation play.
+9. Apply player damage only at visual connect.
+10. Show player feedback (`Blocked`, `Dodged`, `Counter`, damage) (wait 700ms).
+11. If player dies, battle ends.
+12. `Round X resolved.` (wait 700ms)
+13. `Round X+1 begins.` then `Select your attack.`
 
-> Damage for all player attacks is applied only on hit frame/contact frame.
+## Animation behavior checks
 
-## Defence Animations
+### Player attacks
+- **Arrow Shot**: larger/slower yellow projectile; demon HP changes only when arrow reaches demon.
+- **Flame Strike**: larger/slower fireball + larger burst; HP changes on contact.
+- **Heavy Slash**: bigger/longer slash arc; HP changes at slash impact frame.
 
-- **Wooden Shield**: front arc appears in front of player, then reduced damage is applied.
-- **Dodge Charm**: player shifts sideways and flashes.
-  - Success: `Dodged!` and zero damage.
-  - Fail: `Dodge failed!` then normal damage.
-- **Counter Guard**: block arc appears, incoming damage is reduced, then reflected counter effect damages demon.
+### Demon attacks
+- **Claw Hit**: larger claw marks; damage at impact frame.
+- **Tail Strike**: wider sweep arc; damage at impact frame.
+- **Dark Blast**: larger/slower purple projectile; damage only on hit.
 
-## Demon Attack Animations
+### Defences
+- **Wooden Shield**: large front arc appears before impact; then reduced damage.
+- **Dodge Charm**: clearer side-shift; success/fail resolved at impact frame.
+- **Counter Guard**: incoming damage reduced first, then reflected projectile travels to demon; demon takes 8 only when reflected hit connects.
 
-- **Claw Hit**: slash marks appear at player.
-- **Tail Strike**: curved arc swipe appears near player.
-- **Dark Blast**: purple projectile travels from demon to player.
+## UI/layout update
 
-## Input Rules During Animation
+Canvas height is increased to **900x580** so both defence rows and controls fit:
+- attack slots fully visible
+- defence slots fully visible
+- counter slot fully visible
+- done button no longer overlaps
+- message box remains readable
 
-During turn resolution:
-- Attack/defence selection is disabled.
-- Done cannot be triggered repeatedly.
-- Only `R` restart is accepted.
+## Input lock behavior
 
-## UI Improvements in Milestone 4
+During resolution:
+- Attack/defence selection disabled
+- Done disabled
+- Space/Enter cannot double-trigger
+- Only `R` restart is allowed
 
-- Attack and defence panels fully visible.
-- Done button moved to avoid overlapping slots.
-- Message box has larger usable space and wraps text.
-- Empty slots look disabled.
-- Selected attack/defence have strong highlight borders.
-- Round number remains centered and visible.
+Restart also cancels old in-flight async sequence steps via `sequenceId` guard.
 
-## How to Run
+## How to test non-overlap (core sequencing test)
 
-### Option 1: Open directly
-Open `index.html` in a modern browser.
+1. Choose **Arrow Shot** + any defence.
+2. Press Done.
+3. Confirm demon attack message never appears until after arrow reaches demon and demon damage is shown.
+4. Repeat with Flame Strike and Heavy Slash.
 
-### Option 2: Run local server
-```bash
-python3 -m http.server 8000
-```
-Then open `http://localhost:8000`.
+## How to test each attack animation
 
-## How to Test One Full Animated Round
+1. Press `1` for Arrow Shot repeatedly and watch projectile impact timing.
+2. Press `2` for Flame Strike until both hit and miss cases appear.
+3. Press `3` for Heavy Slash and verify impact timing occurs mid-effect.
 
-1. Select **Arrow Shot** (`1`) and **Wooden Shield** (`Q`).
-2. Press **Done** (`Space` or `Enter`).
-3. Verify timeline messages appear in order.
-4. Verify player attack animation plays before demon HP drops.
-5. Verify demon attack + shield animation play before player HP drops.
-6. Verify floating texts rise/fade.
-7. Verify `Round X begins.` then `Select your attack.` appears.
+## How to test each defence animation
 
-## Known Limitations
+1. Choose `Q` Wooden Shield and verify message says 60% blocked before player HP update.
+2. Choose `W` Dodge Charm and test both success and failure outcomes.
+3. Choose `E` Counter Guard and confirm reflected damage happens only when counter effect visually hits demon.
 
-- Placeholder rectangle characters and simple geometric effects only.
-- No sound system yet.
-- Message box is single-message style (not a scrolling log history yet).
-- Demon AI is random and not tactical.
+## Known limitations
+
+- Placeholder rectangle characters (no sprite art yet).
+- No sound effects.
+- Single message box (not full scrolling log).
+- Random demon attack selection (not tactical AI).
